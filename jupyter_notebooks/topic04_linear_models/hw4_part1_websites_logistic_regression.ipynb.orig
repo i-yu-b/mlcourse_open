@@ -1,0 +1,1847 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "<center>\n",
+    "<img src=\"../../img/ods_stickers.jpg\">\n",
+    "## Открытый курс по машинному обучению\n",
+    "</center>\n",
+    "Автор материала: Юрий Исаков. Материал распространяется на условиях лицензии [Creative Commons CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Можно использовать в любых целях (редактировать, поправлять и брать за основу), кроме коммерческих, но с обязательным упоминанием автора материала."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# <center> Домашнее задание № 4. Часть 1\n",
+    "## <center>  Идентификация пользователя с помощью логистической регрессии\n",
+    "\n",
+    "В этой домашней работе мы научимся работать с разреженными матрицами, обучать логистическую регрессию, формировать и отбирать признаки, а также воспроизведем два бейслайна учебного [соревнования](https://inclass.kaggle.com/c/catch-me-if-you-can-intruder-detection-through-webpage-session-tracking) \"Catch Me If You Can: Intruder Detection through Webpage Session Tracking\" на Kaggle Inclass. В этой домашней работе 9 заданий, которые вам предстоит выполнить и после этого заполнить ответы в [гугл-форме](https://docs.google.com/forms/d/e/1FAIpQLSd8E7naU38ikc9-rd31KeVfez3emCo4Ok1WrpQTr-XCDelRiw/viewform)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# загрузим библиотеки и установим опции\n",
+    "\n",
+    "from __future__ import division, print_function\n",
+    "# отключим всякие предупреждения Anaconda\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')\n",
+    "%matplotlib inline\n",
+    "from matplotlib import pyplot as plt\n",
+    "import seaborn as sns\n",
+    "\n",
+    "import pickle\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from scipy.sparse import csr_matrix\n",
+    "from scipy.sparse import hstack\n",
+    "from sklearn.preprocessing import StandardScaler\n",
+    "from sklearn.metrics import roc_auc_score\n",
+    "from sklearn.linear_model import LogisticRegression"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "##### О соревновании\n",
+    "Мы будем решать задачу идентификации взломщика по его поведению в сети Интернет. Это сложная и интересная задача на стыке анализа данных и поведенческой психологии. В качестве примера: компания Яндекс решает задачу идентификации взломщика почтового ящика по его поведению. В двух словах, взломщик будет себя вести не так, как владелец ящика: он может не удалять сообщения сразу по прочтении, как это делал хозяин, он будет по-другому ставить флажки сообщениям и даже по-своему двигать мышкой. Тогда такого злоумышленника можно идентифицировать и \"выкинуть\" из почтового ящика, предложив хозяину войти по SMS-коду. Этот пилотный проект описан в статье на Хабрахабре. Похожие вещи делаются, например, в Google Analytics и описываются в научных статьях, найти можно многое по фразам \"Traversal Pattern Mining\" и \"Sequential Pattern Mining\".\n",
+    "\n",
+    "В этом соревновании будем решать похожую задачу: алгоритм будет анализировать последовательность из нескольких веб-сайтов, посещенных подряд одним и тем же человеком, и определять, Элис это или взломщик (кто-то другой). В качестве метрики в этом соревновании используется [ROC AUC](https://ru.wikipedia.org/wiki/ROC-кривая). Кто такая Элис, мы расскажем в конце курса."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 1. Загрузка и преобразование данных\n",
+    "Зарегистрируйтесь на [Kaggle](www.kaggle.com), если вы не сделали этого раньше, зайдите на [страницу](https://inclass.kaggle.com/c/catch-me-if-you-can-intruder-detection-through-webpage-session-tracking) соревнования и скачайте данные. Первым делом загрузим обучающую и тестовую выборки, посмотрим на данные и выполним несколько простых заданий:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 19,
+=======
+   "execution_count": 2,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>site1</th>\n",
+       "      <th>time1</th>\n",
+       "      <th>site2</th>\n",
+       "      <th>time2</th>\n",
+       "      <th>site3</th>\n",
+       "      <th>time3</th>\n",
+       "      <th>site4</th>\n",
+       "      <th>time4</th>\n",
+       "      <th>site5</th>\n",
+       "      <th>time5</th>\n",
+       "      <th>...</th>\n",
+       "      <th>time6</th>\n",
+       "      <th>site7</th>\n",
+       "      <th>time7</th>\n",
+       "      <th>site8</th>\n",
+       "      <th>time8</th>\n",
+       "      <th>site9</th>\n",
+       "      <th>time9</th>\n",
+       "      <th>site10</th>\n",
+       "      <th>time10</th>\n",
+       "      <th>target</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>session_id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>12224</th>\n",
+       "      <td>50</td>\n",
+       "      <td>2014-04-30 23:33:48</td>\n",
+       "      <td>50.0</td>\n",
+       "      <td>2014-04-30 23:33:49</td>\n",
+       "      <td>48.0</td>\n",
+       "      <td>2014-04-30 23:33:52</td>\n",
+       "      <td>49.0</td>\n",
+       "      <td>2014-04-30 23:33:52</td>\n",
+       "      <td>48.0</td>\n",
+       "      <td>2014-04-30 23:33:53</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2014-04-30 23:33:53</td>\n",
+       "      <td>52.0</td>\n",
+       "      <td>2014-04-30 23:33:54</td>\n",
+       "      <td>49.0</td>\n",
+       "      <td>2014-04-30 23:33:54</td>\n",
+       "      <td>303.0</td>\n",
+       "      <td>2014-04-30 23:33:57</td>\n",
+       "      <td>304.0</td>\n",
+       "      <td>2014-04-30 23:34:00</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>164438</th>\n",
+       "      <td>4207</td>\n",
+       "      <td>2014-04-30 23:34:15</td>\n",
+       "      <td>753.0</td>\n",
+       "      <td>2014-04-30 23:34:16</td>\n",
+       "      <td>753.0</td>\n",
+       "      <td>2014-04-30 23:34:17</td>\n",
+       "      <td>52.0</td>\n",
+       "      <td>2014-04-30 23:34:18</td>\n",
+       "      <td>50.0</td>\n",
+       "      <td>2014-04-30 23:34:18</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2014-04-30 23:35:16</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:35:29</td>\n",
+       "      <td>3359.0</td>\n",
+       "      <td>2014-04-30 23:36:12</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:36:42</td>\n",
+       "      <td>38.0</td>\n",
+       "      <td>2014-04-30 23:37:13</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>12221</th>\n",
+       "      <td>52</td>\n",
+       "      <td>2014-04-30 23:38:08</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:38:10</td>\n",
+       "      <td>784.0</td>\n",
+       "      <td>2014-04-30 23:38:13</td>\n",
+       "      <td>784.0</td>\n",
+       "      <td>2014-04-30 23:38:18</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:38:22</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2014-04-30 23:38:24</td>\n",
+       "      <td>3324.0</td>\n",
+       "      <td>2014-04-30 23:38:35</td>\n",
+       "      <td>7330.0</td>\n",
+       "      <td>2014-04-30 23:38:35</td>\n",
+       "      <td>3594.0</td>\n",
+       "      <td>2014-04-30 23:38:35</td>\n",
+       "      <td>3329.0</td>\n",
+       "      <td>2014-04-30 23:38:36</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>156968</th>\n",
+       "      <td>3328</td>\n",
+       "      <td>2014-04-30 23:38:36</td>\n",
+       "      <td>3324.0</td>\n",
+       "      <td>2014-04-30 23:38:36</td>\n",
+       "      <td>3599.0</td>\n",
+       "      <td>2014-04-30 23:38:38</td>\n",
+       "      <td>3413.0</td>\n",
+       "      <td>2014-04-30 23:38:38</td>\n",
+       "      <td>753.0</td>\n",
+       "      <td>2014-04-30 23:38:39</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2014-04-30 23:38:40</td>\n",
+       "      <td>3599.0</td>\n",
+       "      <td>2014-04-30 23:38:40</td>\n",
+       "      <td>3359.0</td>\n",
+       "      <td>2014-04-30 23:39:07</td>\n",
+       "      <td>3359.0</td>\n",
+       "      <td>2014-04-30 23:39:08</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:39:53</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>204762</th>\n",
+       "      <td>222</td>\n",
+       "      <td>2014-04-30 23:39:53</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:39:59</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:40:00</td>\n",
+       "      <td>3359.0</td>\n",
+       "      <td>2014-04-30 23:40:05</td>\n",
+       "      <td>55.0</td>\n",
+       "      <td>2014-04-30 23:40:05</td>\n",
+       "      <td>...</td>\n",
+       "      <td>2014-04-30 23:40:05</td>\n",
+       "      <td>3346.0</td>\n",
+       "      <td>2014-04-30 23:40:05</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaT</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaT</td>\n",
+       "      <td>NaN</td>\n",
+       "      <td>NaT</td>\n",
+       "      <td>0</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>5 rows × 21 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "            site1               time1   site2               time2   site3  \\\n",
+       "session_id                                                                  \n",
+       "12224          50 2014-04-30 23:33:48    50.0 2014-04-30 23:33:49    48.0   \n",
+       "164438       4207 2014-04-30 23:34:15   753.0 2014-04-30 23:34:16   753.0   \n",
+       "12221          52 2014-04-30 23:38:08  3346.0 2014-04-30 23:38:10   784.0   \n",
+       "156968       3328 2014-04-30 23:38:36  3324.0 2014-04-30 23:38:36  3599.0   \n",
+       "204762        222 2014-04-30 23:39:53  3346.0 2014-04-30 23:39:59  3346.0   \n",
+       "\n",
+       "                         time3   site4               time4   site5  \\\n",
+       "session_id                                                           \n",
+       "12224      2014-04-30 23:33:52    49.0 2014-04-30 23:33:52    48.0   \n",
+       "164438     2014-04-30 23:34:17    52.0 2014-04-30 23:34:18    50.0   \n",
+       "12221      2014-04-30 23:38:13   784.0 2014-04-30 23:38:18  3346.0   \n",
+       "156968     2014-04-30 23:38:38  3413.0 2014-04-30 23:38:38   753.0   \n",
+       "204762     2014-04-30 23:40:00  3359.0 2014-04-30 23:40:05    55.0   \n",
+       "\n",
+       "                         time5  ...                 time6   site7  \\\n",
+       "session_id                      ...                                 \n",
+       "12224      2014-04-30 23:33:53  ...   2014-04-30 23:33:53    52.0   \n",
+       "164438     2014-04-30 23:34:18  ...   2014-04-30 23:35:16  3346.0   \n",
+       "12221      2014-04-30 23:38:22  ...   2014-04-30 23:38:24  3324.0   \n",
+       "156968     2014-04-30 23:38:39  ...   2014-04-30 23:38:40  3599.0   \n",
+       "204762     2014-04-30 23:40:05  ...   2014-04-30 23:40:05  3346.0   \n",
+       "\n",
+       "                         time7   site8               time8   site9  \\\n",
+       "session_id                                                           \n",
+       "12224      2014-04-30 23:33:54    49.0 2014-04-30 23:33:54   303.0   \n",
+       "164438     2014-04-30 23:35:29  3359.0 2014-04-30 23:36:12  3346.0   \n",
+       "12221      2014-04-30 23:38:35  7330.0 2014-04-30 23:38:35  3594.0   \n",
+       "156968     2014-04-30 23:38:40  3359.0 2014-04-30 23:39:07  3359.0   \n",
+       "204762     2014-04-30 23:40:05     NaN                 NaT     NaN   \n",
+       "\n",
+       "                         time9  site10              time10 target  \n",
+       "session_id                                                         \n",
+       "12224      2014-04-30 23:33:57   304.0 2014-04-30 23:34:00      0  \n",
+       "164438     2014-04-30 23:36:42    38.0 2014-04-30 23:37:13      0  \n",
+       "12221      2014-04-30 23:38:35  3329.0 2014-04-30 23:38:36      0  \n",
+       "156968     2014-04-30 23:39:08  3346.0 2014-04-30 23:39:53      0  \n",
+       "204762                     NaT     NaN                 NaT      0  \n",
+       "\n",
+       "[5 rows x 21 columns]"
+      ]
+     },
+     "execution_count": 19,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# загрузим обучающую и тестовую выборки\n",
+    "train_df = pd.read_csv('../../data/websites_train_sessions.csv',\n",
+    "                       index_col='session_id')\n",
+    "test_df = pd.read_csv('../../data/websites_test_sessions.csv',\n",
+    "                      index_col='session_id')\n",
+    "\n",
+    "# приведем колонки time1, ..., time10 к временному формату\n",
+    "times = ['time%s' % i for i in range(1, 11)]\n",
+    "train_df[times] = train_df[times].apply(pd.to_datetime)\n",
+    "test_df[times] = test_df[times].apply(pd.to_datetime)\n",
+    "\n",
+    "# отсортируем данные по времени\n",
+    "train_df = train_df.sort_values(by='time1')\n",
+    "\n",
+    "# посмотрим на заголовок обучающей выборки\n",
+    "train_df.head()\n",
+    "train_df.tail()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "В обучающей выборке содержатся следующие признаки:\n",
+    "    - site1 – индекс первого посещенного сайта в сессии\n",
+    "    - time1 – время посещения первого сайта в сессии\n",
+    "    - ...\n",
+    "    - site10 – индекс 10-го посещенного сайта в сессии\n",
+    "    - time10 – время посещения 10-го сайта в сессии\n",
+    "    - target – целевая переменная, принимает значение 1 для сессий Элис и 0 для сессий других пользователей\n",
+    "    \n",
+    "Сессии пользователей выделены таким образом, что они не могут быть длинее получаса или содержит более 10 сайтов. То есть сессия считается оконченной либо когда пользователь посетил 10 сайтов подряд, либо когда сессия заняла по времени более 30 минут.\n",
+    "\n",
+    "В таблице встречаются пропущенные значения, это значит, что сессия состоит менее, чем из 10 сайтов. Заменим пропущенные значения нулем и приведем колонки целому типу. Также загрузим словарь сайтов и посмотрим как он выглядит:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 20,
+=======
+   "execution_count": 3,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "всего сайтов: 48371\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>site</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>13852</th>\n",
+       "      <td>i1-js-14-3-01-11544-644949368-i.init.cedexis-r...</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>6240</th>\n",
+       "      <td>static.vol24.fr</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>39840</th>\n",
+       "      <td>mars.nasa.gov</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3899</th>\n",
+       "      <td>scholar.google.fr</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>9677</th>\n",
+       "      <td>9zouxfza1h.s.ad6media.fr</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                                                    site\n",
+       "13852  i1-js-14-3-01-11544-644949368-i.init.cedexis-r...\n",
+       "6240                                     static.vol24.fr\n",
+       "39840                                      mars.nasa.gov\n",
+       "3899                                   scholar.google.fr\n",
+       "9677                            9zouxfza1h.s.ad6media.fr"
+      ]
+     },
+     "execution_count": 20,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# приведем колонки site1, ..., site10 к целочисленному формату и заменим пропуски нулями\n",
+    "sites = ['site%s' % i for i in range(1, 11)]\n",
+    "train_df[sites] = train_df[sites].fillna(0).astype('int')\n",
+    "test_df[sites] = test_df[sites].fillna(0).astype('int')\n",
+    "\n",
+    "# загрузим словарик сайтов\n",
+    "with open(r\"../../data/site_dic.pkl\", \"rb\") as input_file:\n",
+    "    site_dict = pickle.load(input_file)\n",
+    "\n",
+    "# датафрейм словарика сайтов\n",
+    "sites_dict = pd.DataFrame(list(site_dict.keys()), index=list(site_dict.values()), columns=['site'])\n",
+    "print(u'всего сайтов:', sites_dict.shape[0])\n",
+    "sites_dict.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "\n",
+    "#### Задание 1: Какие размерности имеют тестовая и обучающая выборки?\n",
+    "\n",
+    "- (82797, 20) (253561, 20)\n",
+    "- (82797, 20) (253561, 21)\n",
+    "- (253561, 21) (82797, 20)\n",
+    "- (253561, 20) (82797, 20)"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 21,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Train set size (253561, 21)\n",
+      "Test set size (82797, 20)\n"
+     ]
+    }
+   ],
+=======
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "source": [
+    "print('Train set size {}'.format(train_df.shape))\n",
+    "print('Test set size {}'.format(test_df.shape))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 2. Очень краткий первичный анализ"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Перед тем, как начинать строить модели, необходимо провести первичный (разведочный) анализ ([EDA](https://en.wikipedia.org/wiki/Exploratory_data_analysis)). Мы сделаем его краткую версию, но по мере продвижения начнём пользоваться другими его техниками. Посмотрим, какие сайты из обучающей выборки наиболее посещаемые. Ими оказались сервисы компании Гугл и сайт по биоинформатике (сайт с \"нулевым\" индексом — это наши пропущенные значения, просто проигнорируем его):"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 22,
+=======
+   "execution_count": 4,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "21     123776\n",
+      "0      122730\n",
+      "23      87619\n",
+      "782     77055\n",
+      "22      58258\n",
+      "dtype: int64\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>site</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>21</th>\n",
+       "      <td>www.google.fr</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>NaN</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>23</th>\n",
+       "      <td>www.google.com</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>782</th>\n",
+       "      <td>annotathon.org</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>22</th>\n",
+       "      <td>apis.google.com</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                site\n",
+       "21     www.google.fr\n",
+       "0                NaN\n",
+       "23    www.google.com\n",
+       "782   annotathon.org\n",
+       "22   apis.google.com"
+      ]
+     },
+     "execution_count": 22,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# топ-сайты в обучающей выборке\n",
+    "top_sites = pd.Series(train_df[sites].fillna(0).values.flatten()\n",
+    "                     ).value_counts().sort_values(ascending=False).head(5)\n",
+    "print(top_sites)\n",
+    "sites_dict.ix[top_sites.index]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "##### Задание 2: Какие сайты Элис посещает в сети наиболее часто?\n",
+    "\n",
+    "- видеохостинги - correct\n",
+    "- социальные сети\n",
+    "- торрент-трекеры\n",
+    "- новостные сайты"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "77    1382\n",
+      "80    1354\n",
+      "76    1307\n",
+      "29     897\n",
+      "21     857\n",
+      "dtype: int64\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>site</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>77</th>\n",
+       "      <td>i1.ytimg.com</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>80</th>\n",
+       "      <td>s.youtube.com</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>76</th>\n",
+       "      <td>www.youtube.com</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>29</th>\n",
+       "      <td>www.facebook.com</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>21</th>\n",
+       "      <td>www.google.fr</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                site\n",
+       "77      i1.ytimg.com\n",
+       "80     s.youtube.com\n",
+       "76   www.youtube.com\n",
+       "29  www.facebook.com\n",
+       "21     www.google.fr"
+      ]
+     },
+     "execution_count": 27,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "top_sites_Elis = pd.Series(train_df[train_df['target']==1][sites].fillna(0).\n",
+    "                      values.flatten()).value_counts(ascending = False).head(5)\n",
+    "print(top_sites_Elis)\n",
+    "sites_dict.ix[top_sites_Elis.index]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Теперь посмотрим на временные отметки и попробуем охарактеризовать сессии временными интервалами:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 54,
+=======
+   "execution_count": 5,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>site1</th>\n",
+       "      <th>time1</th>\n",
+       "      <th>site2</th>\n",
+       "      <th>time2</th>\n",
+       "      <th>site3</th>\n",
+       "      <th>time3</th>\n",
+       "      <th>site4</th>\n",
+       "      <th>time4</th>\n",
+       "      <th>site5</th>\n",
+       "      <th>time5</th>\n",
+       "      <th>site6</th>\n",
+       "      <th>time6</th>\n",
+       "      <th>site7</th>\n",
+       "      <th>time7</th>\n",
+       "      <th>site8</th>\n",
+       "      <th>time8</th>\n",
+       "      <th>site9</th>\n",
+       "      <th>time9</th>\n",
+       "      <th>site10</th>\n",
+       "      <th>time10</th>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>session_id</th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "      <th></th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>29</td>\n",
+       "      <td>2014-10-04 11:19:53</td>\n",
+       "      <td>35</td>\n",
+       "      <td>2014-10-04 11:19:53</td>\n",
+       "      <td>22</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>321</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>23</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>2211</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>6730</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>21</td>\n",
+       "      <td>2014-10-04 11:19:54</td>\n",
+       "      <td>44582</td>\n",
+       "      <td>2014-10-04 11:20:00</td>\n",
+       "      <td>15336</td>\n",
+       "      <td>2014-10-04 11:20:00</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:00:28</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:00:53</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:00:58</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:06</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:09</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:10</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:23</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:29</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:30</td>\n",
+       "      <td>782</td>\n",
+       "      <td>2014-07-03 11:01:53</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:55:12</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:55:13</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:55:14</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:56:15</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:56:16</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:56:17</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:56:18</td>\n",
+       "      <td>55</td>\n",
+       "      <td>2014-12-05 15:56:19</td>\n",
+       "      <td>1445</td>\n",
+       "      <td>2014-12-05 15:56:33</td>\n",
+       "      <td>1445</td>\n",
+       "      <td>2014-12-05 15:56:36</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>1023</td>\n",
+       "      <td>2014-11-04 10:03:19</td>\n",
+       "      <td>1022</td>\n",
+       "      <td>2014-11-04 10:03:19</td>\n",
+       "      <td>50</td>\n",
+       "      <td>2014-11-04 10:03:20</td>\n",
+       "      <td>222</td>\n",
+       "      <td>2014-11-04 10:03:21</td>\n",
+       "      <td>202</td>\n",
+       "      <td>2014-11-04 10:03:21</td>\n",
+       "      <td>3374</td>\n",
+       "      <td>2014-11-04 10:03:22</td>\n",
+       "      <td>50</td>\n",
+       "      <td>2014-11-04 10:03:22</td>\n",
+       "      <td>48</td>\n",
+       "      <td>2014-11-04 10:03:22</td>\n",
+       "      <td>48</td>\n",
+       "      <td>2014-11-04 10:03:23</td>\n",
+       "      <td>3374</td>\n",
+       "      <td>2014-11-04 10:03:23</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>5</th>\n",
+       "      <td>301</td>\n",
+       "      <td>2014-05-16 15:05:31</td>\n",
+       "      <td>301</td>\n",
+       "      <td>2014-05-16 15:05:32</td>\n",
+       "      <td>301</td>\n",
+       "      <td>2014-05-16 15:05:33</td>\n",
+       "      <td>66</td>\n",
+       "      <td>2014-05-16 15:05:39</td>\n",
+       "      <td>67</td>\n",
+       "      <td>2014-05-16 15:05:40</td>\n",
+       "      <td>69</td>\n",
+       "      <td>2014-05-16 15:05:40</td>\n",
+       "      <td>70</td>\n",
+       "      <td>2014-05-16 15:05:40</td>\n",
+       "      <td>68</td>\n",
+       "      <td>2014-05-16 15:05:40</td>\n",
+       "      <td>71</td>\n",
+       "      <td>2014-05-16 15:05:40</td>\n",
+       "      <td>167</td>\n",
+       "      <td>2014-05-16 15:05:44</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "            site1               time1  site2               time2  site3  \\\n",
+       "session_id                                                                \n",
+       "1              29 2014-10-04 11:19:53     35 2014-10-04 11:19:53     22   \n",
+       "2             782 2014-07-03 11:00:28    782 2014-07-03 11:00:53    782   \n",
+       "3              55 2014-12-05 15:55:12     55 2014-12-05 15:55:13     55   \n",
+       "4            1023 2014-11-04 10:03:19   1022 2014-11-04 10:03:19     50   \n",
+       "5             301 2014-05-16 15:05:31    301 2014-05-16 15:05:32    301   \n",
+       "\n",
+       "                         time3  site4               time4  site5  \\\n",
+       "session_id                                                         \n",
+       "1          2014-10-04 11:19:54    321 2014-10-04 11:19:54     23   \n",
+       "2          2014-07-03 11:00:58    782 2014-07-03 11:01:06    782   \n",
+       "3          2014-12-05 15:55:14     55 2014-12-05 15:56:15     55   \n",
+       "4          2014-11-04 10:03:20    222 2014-11-04 10:03:21    202   \n",
+       "5          2014-05-16 15:05:33     66 2014-05-16 15:05:39     67   \n",
+       "\n",
+       "                         time5  site6               time6  site7  \\\n",
+       "session_id                                                         \n",
+       "1          2014-10-04 11:19:54   2211 2014-10-04 11:19:54   6730   \n",
+       "2          2014-07-03 11:01:09    782 2014-07-03 11:01:10    782   \n",
+       "3          2014-12-05 15:56:16     55 2014-12-05 15:56:17     55   \n",
+       "4          2014-11-04 10:03:21   3374 2014-11-04 10:03:22     50   \n",
+       "5          2014-05-16 15:05:40     69 2014-05-16 15:05:40     70   \n",
+       "\n",
+       "                         time7  site8               time8  site9  \\\n",
+       "session_id                                                         \n",
+       "1          2014-10-04 11:19:54     21 2014-10-04 11:19:54  44582   \n",
+       "2          2014-07-03 11:01:23    782 2014-07-03 11:01:29    782   \n",
+       "3          2014-12-05 15:56:18     55 2014-12-05 15:56:19   1445   \n",
+       "4          2014-11-04 10:03:22     48 2014-11-04 10:03:22     48   \n",
+       "5          2014-05-16 15:05:40     68 2014-05-16 15:05:40     71   \n",
+       "\n",
+       "                         time9  site10              time10  \n",
+       "session_id                                                  \n",
+       "1          2014-10-04 11:20:00   15336 2014-10-04 11:20:00  \n",
+       "2          2014-07-03 11:01:30     782 2014-07-03 11:01:53  \n",
+       "3          2014-12-05 15:56:33    1445 2014-12-05 15:56:36  \n",
+       "4          2014-11-04 10:03:23    3374 2014-11-04 10:03:23  \n",
+       "5          2014-05-16 15:05:40     167 2014-05-16 15:05:44  "
+      ]
+     },
+     "execution_count": 54,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# создадим отдельный датафрейм, где будем работать со временем\n",
+    "time_df = pd.DataFrame(index=train_df.index)\n",
+    "time_df['target'] = train_df['target']\n",
+    "\n",
+    "# найдем время начала и окончания сессии\n",
+    "time_df['min'] = train_df[times].min(axis=1)\n",
+    "time_df['max'] = train_df[times].max(axis=1)\n",
+    "\n",
+    "# вычислим длительность сессии и переведем в секунды\n",
+    "time_df['seconds'] = (time_df['max'] - time_df['min']) / np.timedelta64(1, 's')\n",
+    "\n",
+    "time_df.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Чтобы выполнить следующее задание, составьте описательные статистики по образу тех, которые вы делали в домашней работе на первой неделе. \n",
+    "\n",
+    "##### Задание 3. Выберите все верные утверждения (может оказаться один верный ответ, несколько или ни одного):\n",
+    "\n",
+    "- в среднем сессия Элис короче, чем у остальных пользователей *right*\n",
+    "- доля сессий Элис в выборке больше 1% *wrong*\n",
+    "- диапазоны длительности сессий и Элис, и остальных примерно одинаковы *right*\n",
+    "- разброс значений относительно среднего у всех пользователей (Элис в том числе) приблизительно одинаков *wrong*\n",
+    "- доля сессий Элис от 40 секунд и дольше составляет менее четверти *right*"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 56,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Average Elis session length is 52.3 seconds long\n",
+      "Average other users session length is 139.3 seconds long\n",
+      "Ration of Elis sessions to other users = 0.00905896411514\n",
+      "Std Elis session length is 153.3 seconds long\n",
+      "Std other users session length is 296.7 seconds long\n",
+      "Elis session length is between 0.0 and 1763.0 seconds long\n",
+      "Other users session length is between 0.0 and 1800.0 seconds long\n",
+      "Ration of Elis sessions longer than 40s 0.005\n"
+     ]
+    }
+   ],
+=======
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "source": [
+    "print('Average Elis session length is {0:.1f} seconds long'.format(\n",
+    "       np.mean(time_df[time_df['target'] == 1]['seconds'])))\n",
+    "print('Average other users session length is {0:.1f} seconds long'.format(\n",
+    "       np.mean(time_df[time_df['target'] == 0]['seconds'])))\n",
+    "print('Ration of Elis sessions to other users = {}'.format(\n",
+    "       sum(time_df['target'])/len(time_df['target'])))\n",
+    "print('Std Elis session length is {0:.1f} seconds long'.format(\n",
+    "       np.std(time_df[time_df['target'] == 1]['seconds'])))\n",
+    "print('Std other users session length is {0:.1f} seconds long'.format(\n",
+    "       np.std(time_df[time_df['target'] == 0]['seconds'])))\n",
+    "print('Elis session length is between {0:.1f} and {1:.1f} seconds long'.format(\n",
+    "       np.min(time_df[time_df['target'] == 1]['seconds']),\n",
+    "       np.max(time_df[time_df['target'] == 1]['seconds'])))\n",
+    "print('Other users session length is between {0:.1f} and {1:.1f} seconds long'.format(\n",
+    "       np.min(time_df[time_df['target'] == 0]['seconds']),\n",
+    "       np.max(time_df[time_df['target'] == 0]['seconds'])))\n",
+    "print('Ration of Elis sessions longer than 40s {0:.3f}'.format(\n",
+    "       sum(time_df[time_df['seconds']>=40]['target'])/len(\n",
+    "           time_df[time_df['seconds']>=40]['target'])))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Чтобы обучить нашу первую модель, необходимо подготовить данные. С самого начала выделим целевую переменную и удалим ее из обучающей выборки. Теперь и обучающая, и тестовая выборки будут иметь одинаковое количество колонок, поэтому объединим их в один общий датафрейм. Таким образом, все преобразования будут выполняться одновременно как для обучающей, так и для тестовой выборок. С одной стороны, это ведет к тому, что у обеих выборок будет одно пространство признаков (можно не волноваться, что забыли сделать преобразование какого-то признака для одной из выборок), но с другой возрастает время обработки. Для больших выборок может оказаться невозможным сделать преобразования одновременно для обеих выборок (а иногда преобразования придется разбивать на несколько этапов только для обучающей/тестовой выборки). Здесь же мы будем делать преобразования для объединенной таблицы целиком, а перед обучением или прогнозированием просто возьмем нужную ее часть."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 67,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(336358, 20)"
+      ]
+     },
+     "execution_count": 67,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# наша целевая переменная\n",
+    "y_train = train_df['target']\n",
+    "\n",
+    "# объединенная таблица исходных данных\n",
+    "full_df = pd.concat([train_df.drop('target', axis=1), test_df])\n",
+    "\n",
+    "# индекс, по которому будем отделять обучающую выборку от тестовой\n",
+    "idx_split = train_df.shape[0]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Для самой первой модели будем использовать только посещенные сайты в сессии (но не будем обращать внимание на временные признаки). За таким выбором данных для модели стоит следующая идея:  *у Элис есть свои излюбленные сайты, и чем чаще вы видим эти сайты в сессии, тем выше вероятность, что это сессия Элис, и наоборот.*\n",
+    "\n",
+    "Подготовим данные, из всей таблицы выберем только признаки `site1, site2, ... , site10`. Напомним, что пропущенные значения заменены нулем. Вот как выглядят первые строки таблицы:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 69,
+=======
+   "execution_count": 7,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(336358, 10)"
+      ]
+     },
+     "execution_count": 69,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# табличка с индексами посещенных сайтов в сессии\n",
+    "full_sites = full_df[sites]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Сессии представляют собой последовательность индексов сайтов, и данные в таком виде неудобны для линейных методов. В соответствии с нашей гипотезой (у Элис есть излюбленные сайты) надо преобразовать эту таблицу таким образом, чтобы каждому возможному сайту соответствовал свой отдельный признак (колонка), а его значение равнялось бы количеству посещений этого сайта в сессии. Это делается в две строчки:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 99,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[[0 0 0 ..., 0 0 0]]\n"
+     ]
+    }
+   ],
+=======
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [],
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "source": [
+    "# последовательность с индексами\n",
+    "sites_flatten = full_sites.values.flatten()\n",
+    "# искомая матрица\n",
+    "full_sites_sparse = csr_matrix(([1] * sites_flatten.shape[0],\n",
+    "                                sites_flatten,\n",
+    "                                range(0, sites_flatten.shape[0]  + 10, 10)))[:, 1:]\n",
+    "full_sites_sparse.todense().shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Если вы поняли, что здесь произошло, то можете пропустить следующий кусок (может, и с логистической регрессией тоже умеете обращаться?), если нет, то давайте разберемся.\n",
+    "\n",
+    "### Лирическое отступление 1: разреженные матрицы\n",
+    "\n",
+    "Оценим, сколько потребуется памяти для хранения наших данных на примере преобразований выше. Наша объединенная таблица содержит 336 тысяч наблюдений по 48 тысяч целочисленных признаков в каждом. Нетрудно посчитать необходимый объем памяти, навскидку это: $$336K * 48K * 8 байт = 16M * 8 байт = 128 Гбайт,$$ (а вот [точное](http://www.wolframalpha.com/input/?i=336358*48371*8+bytes) значение). Очевидно, что таких объемов у простых смертных нет (вообще говоря, Питон может и позволить вам создать такую матрицу, но вот уже что-то сделать с ней будет непросто). Что характерно, большинство элементов нашей матрицы — нули. Если мы посчитаем ненулевые элементы, то их окажется порядка 1.8 млн., т.е. чуть больше 10% от всех элементов матрицы. Такая матрица, где большинство элементов нулевые, называется разреженной, а отношение количества нулевых элементов к общему числу элементов называется разреженностью матрицы.\n",
+    "\n",
+    "Для работы с такими данными можно использовать библиотеку `scipy.sparse`, посмотрите [документацию](https://docs.scipy.org/doc/scipy-0.18.1/reference/sparse.html), чтобы разобраться, какие разреженные матрицы бывают, как с ними работать и в каких случаях их использование наиболее эффективно. О том, как они устроены, можно прочитать, например, в [статье](https://en.wikipedia.org/wiki/Sparse_matrix) англоязычной Википедии. Мы же отметим, что разреженная матрица хранит только ненулевые элементы, а место, занимаемое в памяти можно получить вот так (очевидна существенная экономия памяти):"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "1866898 elements * 8 bytes = 14935184 bytes\n",
+      "sparse_matrix_size = 14935184 bytes\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Сколько места занимает разреженная матрица в памяти?\n",
+    "print('{0} elements * {1} bytes = {2} bytes'.format(full_sites_sparse.count_nonzero(), 8, \n",
+    "                                                    full_sites_sparse.count_nonzero() * 8))\n",
+    "# или сразу вот так:\n",
+    "print('sparse_matrix_size = {0} bytes'.format(full_sites_sparse.data.nbytes))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Давайте теперь на минипримере разберемся, как была сформирована матрица с сайтами. Предположим, у нас имеется вот такая таблица с сессиями пользователей:\n",
+    "\n",
+    "| id | site1 | site2 | site3 |\n",
+    "|---|---|---|---|\n",
+    "| 1 | 1 | 0 | 0 |\n",
+    "| 2 | 1 | 3 | 1 |\n",
+    "| 3 | 2 | 3 | 4 |\n",
+    "\n",
+    "Имеется 3 сессии, в каждой из них не более 3 сайтов. Пользователи посещали четыре различных сайта (в ячейках таблицы числа от 1 до 4). Пусть  для определенности:\n",
+    "\n",
+    " 1. vk.com\n",
+    " 2. habrahabr.ru \n",
+    " 3. yandex.ru\n",
+    " 4. ods.ai\n",
+    "\n",
+    "Если за сессию пользователь посетил меньше сайтов, то последние несколько значений будут ноликами. Мы хотим преобразовать исходные данные таким образом, чтобы каждой сессии соответствовала строка, которая отображала, сколько было посещений каждого конкретного сайта. Т.е. предыдущую таблицу мы хотим представить в виде:\n",
+    "\n",
+    "| id | vk.com | habrahabr.ru | yandex.ru | ods.ai |\n",
+    "|---|---|---|---|---|\n",
+    "| 1 | 1 | 0 | 0 | 0 |\n",
+    "| 2 | 2 | 0 | 1 | 0 |\n",
+    "| 3 | 0 | 1 | 1 | 1 |\n",
+    "\n",
+    "Для этого воспользуемся конструктором: `csr_matrix((data, indices, indptr))` и составим частотную таблицу (посмотрите примеры, код и комментарии по ссылкам выше, чтобы понять как это работает). Здесь для большей понятности все параметры зададим вручную:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 101,
+   "metadata": {
+    "scrolled": true
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[[2 1 0 0 0]\n",
+      " [0 2 0 1 0]\n",
+      " [0 0 1 1 1]]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# данные, создаем список единичек, длина которого равна количеству элементов в исходной таблице (9)\n",
+    "# просуммировав количество единичек в ячейке получим частоту, \n",
+    "# сколько было посещений определенного сайта за сессию\n",
+    "data = [1] * 9\n",
+    "\n",
+    "# для этого надо правильно распределить единички по ячейкам\n",
+    "# индексы - номера сайтов, по ним будут суммироваться единички за сессии, т.е. колонки новой матрицы\n",
+    "indices = [1, 0, 0, 1, 3, 1, 2, 3, 4]\n",
+    "\n",
+    "# индексы разбиения на строки (сессии)\n",
+    "# например, строка 0 это элементы между индексами [0; 3) - крайнее правое значение не включается\n",
+    "# строка 1 это элементы между индексами [3; 6) \n",
+    "# строка 2 это элементы между индексами [6; 9) \n",
+    "indptr = [0, 3, 6, 9]\n",
+    "\n",
+    "# объединим эти три переменных в кортеж и сформируем матрицу\n",
+    "# чтобы вывести на экран преобразуем в обычную \"плотную\" матрицу\n",
+    "csr_matrix((data, indices, indptr)).todense()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Как вы могли заметить, в получившейся матрице не 4 столбца (по количеству различных сайтов), а 5. Добавился нулевой столбец, который сообщает, на сколько единиц сессия оказалась короче (в нашем минипримере мы брали сессии длины 3). Этот столбец лишний и его надо убрать из рассмотрения (сделайте это сами). \n",
+    "\n",
+    "##### Задание 4: А теперь еще один вопрос, чему равна разреженность матрицы из минипримера?\n",
+    "\n",
+    "- 42%\n",
+    "- 47%\n",
+    "- 50% *true*\n",
+    "- 53%\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 118,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Sparsity is equal to 50.0%\n"
+     ]
+    }
+   ],
+   "source": [
+    "small_matrix = csr_matrix((data, indices, indptr)).todense()[:,1:]\n",
+    "print('Sparsity is equal to {0:.1f}%'.format(\n",
+    "    np.count_nonzero(small_matrix)/(small_matrix.shape[0]*small_matrix.shape[1])*100))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Еще один плюс использования разреженных матриц в том, что для них имеются специальные реализации как матричных операций, так и алгоритмов машинного обучения, что подчас позволяет ощутимо ускорить операции за счет особенностей структуры данных. Это касается и логистической регрессии. Вот теперь у нас все готово для построения нашей первой модели.\n",
+    "\n",
+    "### 3. Построение первой модели\n",
+    "\n",
+    "Итак, у нас есть алгоритм и данные для него, построим нашу первую модель, воспользовавшись реализацией [логистической регрессии](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html) из пакета `sklearn` с параметрами по умолчанию. Первые 90% данных будем использовать для обучения (обучающая выборка отсортирована по времени), а оставшиеся 10% для проверки качества (validation). Напишем простую функцию, которая будет возвращать качество модели и обучим наш первый классификатор:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 119,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def get_auc_lr_valid(X, y, C=1.0, seed=17, ratio = 0.9):\n",
+    "    # разделим выборку на обучающую и валидационную\n",
+    "    idx = int(round(X.shape[0] * ratio))\n",
+    "    # обучение классификатора\n",
+    "    lr = LogisticRegression(C=C, random_state=seed, n_jobs=-1).fit(X[:idx, :], y[:idx])\n",
+    "    # прогноз для валидационной выборки\n",
+    "    y_pred = lr.predict_proba(X[idx:, :])[:, 1]\n",
+    "    # считаем качество\n",
+    "    score = roc_auc_score(y[idx:], y_pred)\n",
+    "    \n",
+    "    return score"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 120,
+=======
+   "execution_count": 12,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.919524105836\n",
+      "CPU times: user 2.96 s, sys: 168 ms, total: 3.13 s\n",
+      "Wall time: 3.21 s\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%time\n",
+    "# выделим из объединенной выборки только обучающую (для которой есть ответы)\n",
+    "X_train = full_sites_sparse[:idx_split, :]\n",
+    "\n",
+    "# считаем метрику на валидационной выборке\n",
+    "print(get_auc_lr_valid(X_train, y_train))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Первая модель показала качество 0.91952 на отложенной выборке. Будем считать эту модель нашим первым бейслайном, отправной точкой. Для построения модели для прогноза на тестовой выборке **необходимо обучить модель заново уже на всей обучающей выборке** (пока наша модель обучалась лишь на части данных), что повысит ее обобщающую способность:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 263,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "# функция для записи прогнозов в файл\n",
+    "def write_to_submission_file(predicted_labels, out_file,\n",
+    "                             target='target', index_label=\"session_id\"):\n",
+    "    predicted_df = pd.DataFrame(predicted_labels,\n",
+    "                                index = np.arange(1, predicted_labels.shape[0] + 1),\n",
+    "                                columns=[target])\n",
+    "    predicted_df.to_csv(out_file, index_label=index_label)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# обучим модель на всей выборке\n",
+    "# random_state=17 для воспроизводимости\n",
+    "# параметр C=1 по умолчанию, но здесь мы его укажем явно\n",
+    "lr = LogisticRegression(C=1.0, random_state=17).fit(X_train, y_train)\n",
+    "\n",
+    "# сделаем прогноз для тестовой выборки\n",
+    "X_test = full_sites_sparse[idx_split:,:]\n",
+    "y_test = lr.predict_proba(X_test)[:, 1]\n",
+    "\n",
+    "# запишем его в файл, готовый для сабмита\n",
+    "write_to_submission_file(y_test, 'baseline_1.csv')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Если вы выполните эти действия и загрузите ответ на [странице](https://inclass.kaggle.com/c/catch-me-if-you-can-intruder-detection-through-webpage-session-tracking) соревнования, то получите качество `ROC AUC = 0.91707` на публичном лидерборде.\n",
+    "\n",
+    "### 4. Улучшение модели, построение новых признаков\n",
+    "\n",
+    "Попробуем улучшить качество, добавив новые признаки в модель. Но сначала ответим на вопрос:\n",
+    "\n",
+    "##### Задание 5: данные за какие годы представлены в обучающей и тестовой выборке?\n",
+    "\n",
+    "- за 13 и 14\n",
+    "- за 2012 и 2013\n",
+    "- за 2013 и 2014 *right*\n",
+    "- за 2014 и 2015"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 123,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "dtype('<M8[ns]')"
+      ]
+     },
+     "execution_count": 123,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# ваш код здесь\n",
+    "full_df['time1'].apply(lambda x: x.year).unique()\n",
+    "full_df['time1'].dtype"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Создадим такой признак, который будет представлять из себя число вида ГГГГММ от той даты, когда проходила сессия, например 201407 -- 2014 год и 7 месяц. Таким образом мы будем учитывать помесячный [линейный тренд](http://people.duke.edu/~rnau/411trend.htm) за весь период предоставленных данных."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 124,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "# датафрейм для новых признаков\n",
+    "full_new_feat = pd.DataFrame(index=full_df.index)\n",
+    "\n",
+    "# добавим признак start_month\n",
+    "full_new_feat['start_month'] = full_df['time1'].apply(lambda ts: 100 * ts.year + ts.month)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "##### Задание 6: Постройте график количества сессий Элис в зависимости от новой переменной start_month. Выберите верное утверждение:\n",
+    "\n",
+    "- Элис вообще не выходила в сеть за все это время\n",
+    "- с начала 2013 года по середину 2014 года количество ежемесячных сессий уменьшилось\n",
+    "- в целом количество сессий Элис за месяц постоянно на протяжении всего периода\n",
+    "- с начала 2013 года по середину 2014 года количество ежемесячных сессий возросло\n",
+    "\n",
+    "*Подсказка: график будет нагляднее, если трактовать `start_month` как категориальную порядковую переменную*."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 155,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\nVSdPntTixYv73/fo0aMx/KSjLxqzmzp1ql5//XVdf/31kqTe3l7Fx8cPmN1tt92mM2fOxOpjjrpo\nzE2S/va3v+n9999XcXFx/89OpLlJ0ZndBx98oJSUFP385z/Xww8/rEuXLikzM5PZDfP37mtf+5o6\nOzvV09Mj55x8Ph+z+9LsQqGQKisr+8/2STLbiTENckJCghITE9XV1aXHH39cpaWl/b9UV57v7OyU\nJH3rW9/StGnTBrze5/Opr69P9957rxobG/WNb3xDXV1d/b+sV96jq6trwPYvvu94FY3ZxcXFacaM\nGZKk3bt3q7u7WwsXLlRXV9eA07J+v1+9vb0x+qSjKxpz++ijj7Rt2zZVVFQM+NmJNDcpOrNrb2/X\ne++9p4cffli7du3SsWPHdPToUWY3jNlJ0uzZs7VkyRJ95zvf0Z133qnk5GRm96XZ/ehHP1JJSYlu\nuOGG/m1WOzHmF3W1trZq5cqV+u53v6v77ruv/3sASQoGg0pOTh7y9VOmTNHvf/97bdy4UWVlZUpM\nTFQwGBzwHklJSQO2D+d9x4PRnp0khcNh1dTU6PDhw3r55Zfl8/n+Z6bhcFiBwJhefhCR0Z7bH/7w\nB7W3t+uRRx7RK6+8ov3792vfvn0Tbm7S6M8uJSVFN910k2bNmqUpU6Zo8eLFOnPmDLMbxJdnd+7c\nOR08eFAHDhzQO++8o4sXL+rNN99kdl/w73//WydOnNC2bdu0YsUK/ec//9ETTzxhthNjGuSPP/5Y\nJSUlWrt2rYqKiiRJ2dnZamxslCQ1NDQoNzf3qq+vqqrSsWPHJH3+14zP59OsWbPU3NysS5cuqaen\nRydOnNDtt9+unJyc/i/zGxoadMcdd0T500VXNGYnSRUVFQqFQtq+fXv/qeucnBw1NDRIkk6dOqWs\nrKyofa5oi8bcVq5cqX379mn37t165JFHdO+99+qBBx6YUHOTojO7r371qwoGg2pubpYknThxQrNn\nz2Z2XzLY7JKSknTdddcpPj5efr9faWlp6ujoYHZfcMMNN+itt97S7t27tXv3bk2fPl0vvPCC2U6M\n6c0lqqur9eabbyozM7N/2zPPPKPq6mpdvnxZmZmZqq6ult/v739+4cKFOnz4sKTPvwe48r1AXFyc\nKioqNGvWrP6r55xzWrJkiR566CF9+umnKisrU1tbm6ZMmaLNmzcrPT09pp93NEVjdp999pmWLFmi\n3Nzc/kCvXLlSd911l6qqqnT+/Hk55/TjH/9Ys2bNit2HHUXR+p27Yt++ffrHP/4x4CrriTA3KXqz\nO3r0qDZv3iznnG6//XatX7+e2Wl4s3vttde0d+9eTZkyRTNnztTGjRsVCASY3Rdm90Vf3G6xE9zt\nCQAAA8b8O2QAAECQAQAwgSADAGAAQQYAwACCDACAAQQZAAADCDIAAAYQZAAADPj/QQBBq07swbEA\nAAAASUVORK5CYII=\n",
+      "text/plain": [
+       "<matplotlib.figure.Figure at 0x112b21ad0>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "temp = full_new_feat.iloc[:idx_split,:]\n",
+    "temp['target'] = y_train\n",
+    "elis_sessions = temp.groupby('start_month')['target'].sum()\n",
+    "\n",
+    "x_axis = elis_sessions.index\n",
+    "y_axis = elis_sessions.values\n",
+    "plt.plot(x_axis, y_axis, 'ro')\n",
+    "plt.show() "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Таким образом, у нас есть иллюстрация и соображения насчет полезности нового признака, добавим его в обучающую выборку и проверим качество новой модели:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 156,
+=======
+   "execution_count": 16,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.750835486018\n"
+     ]
+    }
+   ],
+   "source": [
+    "# добавим новый признак в разреженную матрицу\n",
+    "tmp = full_new_feat[['start_month']].as_matrix()\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:], tmp[:idx_split,:]]))\n",
+    "\n",
+    "# считаем метрику на валидационной выборке\n",
+    "print(get_auc_lr_valid(X_train, y_train))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Качество модели значительно ухудшилось. Мы добавили признак, который определенно казался нам полезным, но его использование только ухудшило модель. Почему так произошло?\n",
+    "\n",
+    "### Лирическое отступление 2: надо ли масштабировать признаки?\n",
+    "\n",
+    "Здесь мы приведем интуитивное рассуждение (строгое математическое обоснование того или иного аспекта в линейных моделях вы без труда найдете в сети). Рассмотрим признаки внимательнее: те из них, которые соответствуют количеству посещений определенного сайта за сессию, изменяются от 0 до 10. Признак `start_month` имеет совсем другую шкалу: от 201301 до 201412, это значит вклад этой переменной значительно больше остальных. Казалось бы, проблемы можно избежать, если поставить этому признаку меньший вес в линейной комбинации признаков, но в нашем случае используется логистическая регрессия с регуляризацией (по умолчанию этот параметр `C=1`), которая тем сильнее штрафует модель, чем ее веса больше.  Поэтому при использовании линейных методов с регуляризацией рекомендуется приводить признаки к одному масштабу (больше о регуляризации вы можете почитать, например, [здесь](https://habrahabr.ru/company/ods/blog/322076/)). \n",
+    "\n",
+    "Один из способов сделать это -- стандартизация: для каждого наблюдения надо отнять среднее по признаку и эту разность разделить на среднеквадратическое отклонение: \n",
+    "\n",
+    "$$ x^{*}_{i} = \\dfrac{x_{i} - \\mu_x}{\\sigma_x}$$\n",
+    "\n",
+    "Можно дать следующие практические советы:\n",
+    "- рекомендуется масштабировать признаки, если они находятся в существенно разных шкалах или разных единицах измерения (например, население страны указано в единицах, а ВНП страны в триллионах);\n",
+    "- масштабируйте признаки, если у вас нет оснований/экспертного мнения придавать больший вес каким-либо из них;\n",
+    "- масштабирование может быть лишним, если диапазоны некоторых ваших признаков отличаются друг от друга, но при этом находятся в одной системе единиц (например, доли людей средних лет и старше 80 среди всего населения);\n",
+    "- если вы хотите получить интерпретируемую модель, то постройте модель без регуляризации и масштабирования (скорее всего, ее качество окажется хуже);\n",
+    "- бинарные переменные (принимают только значения 0 или 1) обычно оставляют без преобразования, (но)\n",
+    "- если качество модели имеет решающее значение, попробуйте разные варианты и выберите тот, где качество выше.\n",
+    "\n",
+    "Возвращаяся к `start_month`, масштабируем новый признак и снова обучим модель. В этот раз качество возросло:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 157,
+=======
+   "execution_count": 17,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.919698464197\n"
+     ]
+    }
+   ],
+   "source": [
+    "# добавим новый стандартизированный признак в разреженную матрицу\n",
+    "tmp = StandardScaler().fit_transform(full_new_feat[['start_month']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:], tmp[:idx_split,:]]))\n",
+    "\n",
+    "# считаем метрику на валидационной выборке\n",
+    "print(get_auc_lr_valid(X_train, y_train))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "##### Задание 7: Добавьте в обучающую выборку признак n_unique_sites , количество уникальных сайтов в сессии, и посчитайте, как изменилось качество на отложенной выборке?\n",
+    "\n",
+    "- уменьшилось, новый признак лучше не масштабировать\n",
+    "- не изменилось\n",
+    "- уменьшилось, новый признак надо масштабировать\n",
+    "- я в ступоре и не знаю, надо ли мастшабировать новый признак, а попробовать оба варианта и выбрать лучший не хватает смелости\n",
+    "\n",
+    "*Подсказки: воспользуйтесь функцией nunique() из Pandas. Не забудьте включить в выборку start_month. Будете ли вы мастшабировать новый признак? Почему?*"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 236,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Metrics on validation set for one scaled, one unscaled new feature 0.916377578994\n",
+      "Metrics on validation set for two scaled new feature 0.915686787773\n"
+     ]
+    }
+   ],
+   "source": [
+    "# add a feature: number of unique sites in session\n",
+    "full_new_feat['n_unique_sites'] = full_df[sites].apply(lambda x: x.nunique(),axis = 1)\n",
+    "temp_unscaled = full_new_feat[['n_unique_sites']].values\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month']])\n",
+    "temp_scaled_both = StandardScaler().fit_transform(full_new_feat[['start_month','n_unique_sites']])\n",
+    "\n",
+    "X_train1 = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:],temp_unscaled[:idx_split,:]]))\n",
+    "X_train2 = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled_both[:idx_split,:]]))\n",
+    "\n",
+    "print(\"Metrics on validation set for one scaled, one unscaled new feature {}\".format(get_auc_lr_valid(X_train1, y_train)))\n",
+    "print(\"Metrics on validation set for two scaled new feature {}\".format(get_auc_lr_valid(X_train2, y_train)))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Итак, новый признак немного ухудшил качество, поэтому мы не будем его использовать. Тем не менее, не спешите выкидывать признаки, которые не сработали. Они могут пригодится для комбинации новых признаков (например, когда новый признак является отношением или произведением двух других).\n",
+    "\n",
+    "##### Задание 8. Добавьте два новых признака: start_hour и morning. Посчитайте метрику, какие из признаков дали прирост?\n",
+    "\n",
+    "Признак `start_hour` это час в который началась сессия (от 0 до 23), а бинарный признак `morning` равен 1, если сессия началась утром и 0, если сессия началась позже (будем считать, что утро это если `start_hour равен` 11 или меньше).\n",
+    "\n",
+    "Будете ли вы масштабировать новые признаки? Сделайте предположения и проверьте их на практике.\n",
+    "\n",
+    "- ни один из признаков не дал прирост ;(\n",
+    "- `start_hour` дал прирост, а `morning` нет\n",
+    "- `morning` дал прирост, а `start_hour` почему-то нет\n",
+    "- оба признака дали прирост *right*\n",
+    "\n",
+    "*Подсказка: найдите в [справке](http://pandas.pydata.org/pandas-docs/stable/api.html) подходящие функции для работы с временными данными. Не забудьте включить признак `start_month`.*"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 253,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Metrics on validation set with raw 'start_hour' 0.957269294451\n",
+      "Metrics on validation set with scaled 'start_hour' 0.957925214\n",
+      "Metrics on validation set with raw 'morning' 0.948665501862\n",
+      "Metrics on validation set with scaled 'morning' 0.94877781582\n",
+      "Metrics on validation set with raw 'morning' and 'start_hour' 0.958494029849\n",
+      "Metrics on validation set with both features scaled 0.959150704196\n"
+     ]
+    }
+   ],
+   "source": [
+    "# raw start_hour\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "temp_raw = full_new_feat[['start_hour']].as_matrix()\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:],temp_raw[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with raw 'start_hour' {}\".format(get_auc_lr_valid(X_train, y_train)))\n",
+    "\n",
+    "# scaled start_hour\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month','start_hour']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with scaled 'start_hour' {}\".format(get_auc_lr_valid(X_train, y_train)))\n",
+    "\n",
+    "# raw morning\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "full_new_feat['morning'] = full_new_feat['start_hour'].apply(lambda x: int(x<=11))\n",
+    "temp_raw = full_new_feat[['morning']].as_matrix()\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:],temp_raw[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with raw 'morning' {}\".format(get_auc_lr_valid(X_train, y_train)))\n",
+    "\n",
+    "# scaled morning\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month','morning']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with scaled 'morning' {}\".format(get_auc_lr_valid(X_train, y_train)))\n",
+    "\n",
+    "\n",
+    "# raw start_hour and morning\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "full_new_feat['morning'] = full_new_feat['start_hour'].apply(lambda x: int(x<=11))\n",
+    "temp_raw = full_new_feat[['morning','start_hour']].as_matrix()\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:],temp_raw[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with raw 'morning' and 'start_hour' {}\".format(get_auc_lr_valid(X_train, y_train)))\n",
+    "\n",
+    "# scaled start_hour and scaled morning\n",
+    "full_new_feat['start_hour'] = full_df['time1'].apply(lambda x: x.hour)\n",
+    "full_new_feat['morning'] = full_new_feat['start_hour'].apply(lambda x: int(x<=11))\n",
+    "temp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month','start_hour','morning']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:],temp_scaled[:idx_split,:]]))\n",
+    "print(\"Metrics on validation set with both features scaled {}\".format(get_auc_lr_valid(X_train, y_train)))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 5. Подбор коэффицициента регуляризации\n",
+    "\n",
+    "Итак, мы ввели признаки, которые улучшают качество нашей модели по сравнению с первым бейслайном. Можем ли мы добиться большего значения метрики? После того, как мы сформировали обучающую и тестовую выборки, почти всегда имеет смысл подобрать оптимальные гиперпараметры — характеристики модели, которые не изменяются во время обучения. Например, на 3 неделе вы проходили решающие деревья, глубина дерева это гиперпараметр, а признак, по которому происходит ветвление и его значение — нет. В используемой нами логистической регрессии веса каждого признака изменяются, и во время обучения ищутся их оптимальные значения, а коэффициент регуляризации остается постоянным. Это тот гиперпараметр, который мы сейчас будем оптимизировать.\n",
+    "\n",
+    "Посчитаем качество на отложенной выборке с коэффициентом регуляризации, который по умолчанию  равен 1 (`C=1`):"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 254,
+=======
+   "execution_count": 18,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.959150704196\n"
+     ]
+    }
+   ],
+   "source": [
+    "# формируем обучающую выборку\n",
+    "tmp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month', 'start_hour', 'morning']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:], \n",
+    "                             tmp_scaled[:idx_split,:]]))\n",
+    "\n",
+    "# зафиксируем качество с параметрами по умолчанию\n",
+    "score_C_1 = get_auc_lr_valid(X_train, y_train)\n",
+    "print(score_C_1)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Постараемся побить этот результат за счет оптимизации коэффициента регуляризации. Возьмем набор возможных значений C и для каждого из них посчитаем значение метрики на отложенной выборке:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 255,
+=======
+   "execution_count": 19,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "CPU times: user 22.8 s, sys: 422 ms, total: 23.2 s\n",
+      "Wall time: 23.4 s\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%time\n",
+    "# набор возможных значений С\n",
+    "Cs = np.logspace(-3, 1, 10)\n",
+    "\n",
+    "scores = []\n",
+    "    \n",
+    "for C in Cs:\n",
+    "    scores.append(get_auc_lr_valid(X_train, y_train, C=C))\n",
+    "\n",
+    "\n",
+    "\n",
+    "# установите и подключите этот модуль для отслеживания числа выполненных итераций \n",
+    "\n",
+    "# from tqdm import tqdm\n",
+    "# for C in tqdm(Cs):\n",
+    "#     scores.append(get_auc_lr_valid(X_train, y_train, C=C))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Построим график зависимости метрики от значения коэффициента регуляризации. Значение метрики с параметром C по умолчанию отображено горизонтальным пунктиром:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 257,
+=======
+   "execution_count": 20,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<matplotlib.figure.Figure at 0x10d903cd0>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plt.plot(Cs, scores, 'ro-')\n",
+    "plt.xscale('log')\n",
+    "plt.xlabel('C')\n",
+    "plt.ylabel('AUC-ROC')\n",
+    "plt.title('C coef optimization')\n",
+    "# горизонтальная линия -- качество модели с коэффициентом по умолчанию\n",
+    "plt.axhline(y=score_C_1, linewidth=.5, color = 'b', linestyle='dashed') \n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "##### Задание 9:  при каком коэффициенте регуляризации C модель показывает наивысшее качество?\n",
+    "\n",
+    "- 0.17 correct\n",
+    "- 0.46\n",
+    "- 1.29\n",
+    "- 3.14"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 261,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[0.96121417124376229, 0.96033528433546378, 0.95867427563535879, 0.95626767737151519]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# ваш код здесь\n",
+    "C_test = [0.17, 0.46, 1.29, 3.14]\n",
+    "answer = []\n",
+    "    \n",
+    "for C in C_test:\n",
+    "    answer.append(get_auc_lr_valid(X_train, y_train, C=C))\n",
+    "print(answer)\n",
+    "\n",
+    "C_opt = Cs[scores.index(max(scores))]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "И последнее в этой домашней работе: обучите модель с найденным оптимальным значением коэффициента регуляризации (не округляйте до двух знаков как в последнем задании). Если вы все сделали правильно и загрузите это решение, то повторите второй бейслайн — 0.93474 на паблик лидерборде:"
+   ]
+  },
+  {
+   "cell_type": "code",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "execution_count": 264,
+=======
+   "execution_count": null,
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# подготовим данные для обучения и теста\n",
+    "tmp_scaled = StandardScaler().fit_transform(full_new_feat[['start_month', 'start_hour', 'morning']])\n",
+    "X_train = csr_matrix(hstack([full_sites_sparse[:idx_split,:], \n",
+    "                             tmp_scaled[:idx_split,:]]))\n",
+    "X_test = csr_matrix(hstack([full_sites_sparse[idx_split:,:], \n",
+    "                            tmp_scaled[idx_split:,:]]))\n",
+    "\n",
+    "# обучим модель на всей выборке с оптимальным коэффициентом регуляризации\n",
+    "lr = LogisticRegression(C=C_opt, random_state=17).fit(X_train, y_train)\n",
+    "\n",
+    "# сделаем прогноз для тестовой выборки\n",
+    "y_test = lr.predict_proba(X_test)[:, 1]\n",
+    "\n",
+    "# запишем его в файл, готовый для сабмита\n",
+    "write_to_submission_file(y_test, 'baseline_2.csv')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Заключение\n",
+    "\n",
+    "В этой домашней работе вы научились пользоваться разреженными матрицами и обучать модели логистической регрессии, создали несколько признаков и отобрали лучшие из них, узнали, зачем надо масштабировать признаки и как подбирать гиперпараметры. Вот напоследок несколько идей для новых признаков: подумайте, что нового вы можете придумать по образу и подобию уже имеющихся признаков, попробуйте умножение или деление двух из них, подкрепите свои догадки графиками, постарайтесь извлечь полезную информацию из временных данных (time1 ... time10), не стесняйтесь преобразовать уже имеющийся признак (например, прологарифмировать). Мы предлагаем вам пробовать новые идеи и модели на протяжении всего курса, участвовать в соревновании – это весело!"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "display_name": "Python 2",
+   "language": "python",
+   "name": "python2"
+=======
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+<<<<<<< HEAD:jupyter_notebooks/topic4_linear_models/hw4_part1_websites_logistic_regression.ipynb
+   "pygments_lexer": "ipython2",
+   "version": "2.7.13"
+=======
+   "pygments_lexer": "ipython3",
+   "version": "3.6.1"
+>>>>>>> upstream/master:jupyter_notebooks/topic04_linear_models/hw4_part1_websites_logistic_regression.ipynb
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
